@@ -1,0 +1,5 @@
+#子目录所有文件赋值给 _SUB_SOURCES变量
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} _GCO_SOURCES)
+message(STATUS _GCO_SOURCES=${_GCO_SOURCES})
+#设置_SUB_SOURCES变量，让它能被根目录访问
+set(_GCO_SOURCES ${_GCO_SOURCES} PARENT_SCOPE)

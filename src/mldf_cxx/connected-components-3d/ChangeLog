@@ -1,0 +1,246 @@
+CHANGES
+=======
+
+1.12.0
+------
+
+* release(1.12.0): better memory bounds for 8 and 26 connected
+* chore: upload changelog
+* docs: describe why the rule holds for binary image memory
+* perf: use far less memory for 8 and 26 connected binary images
+
+1.11.0
+------
+
+* release(1.11.0): using BBDT for 4-connected 2D
+* perf: use block based decision tree for 4-connected problem (#44)
+* chore: update ChangeLog
+
+1.10.0
+------
+
+* release(1.10.0): faster relabeling operation
+* perf(relabel): collapse union-find into simple array remap (#45)
+* docs: discuss where multi-label images come from
+* fix: missing docker build command for manylinux2014
+* chore: update changelog
+* chore: add python3.8 to setup.cfg
+* chore(manylinux): manylinux newer dockers drop py34 and support py38
+
+1.9.0
+-----
+
+* release(1.9.0): lower memory usage for binary images
+* perf(binary images): reduce max\_labels based on theoretical maximums (#43)
+* fix(cpp): std::vector needs inclusion for direct compilation
+* chore(manylinux2014): adapt build\_linux.sh script
+* chore(manylinux2014): python3.9 not ready for prime-time
+* chore(manylinux2014): add dockerfile
+* chore(linux): added streamlined build process for linux
+* chore(manylinux2010): add dockerfile for build
+* chore: update to production/stable Trove identifier
+* fix(tox): make sure the binary is compiled first
+* chore: update changelog
+
+1.8.0
+-----
+
+* release(1.8.0): performance specialization for 2D 8-connected images
+* perf: specialization for 8-connected (#39)
+* chore: update Dockerfile for py38 and add tox.ini to speed up macOS builds
+
+1.7.0
+-----
+
+* release(1.7.0): much faster region graph function
+* test: skip high mem test if it's likely to be on AppVeyor
+* chore: ensure appveyor installs all testing dependencies
+* test: expose some parameterizations of tests
+* test: allow small instances to fail running 512 segmentation
+* chore: add appveyor for building windows binaries
+* perf: faster region graph function (#36)
+* docs: mention size of label limitation and fastremap
+
+1.6.0
+-----
+
+* release(1.6.0): lower memory usage for 16-bit output type
+* perf: limit union-find allocation by maximum representation size (#35)
+* install: help old python versions compile cc3d on mac
+
+1.5.0
+-----
+
+* docs: there are actually a few multiple dispatch versions
+* fix: wrong dtype for fake assignment
+* fix: errant compiler warning about uninitalized variables
+* feat: support non-32-bit output types (#33)
+* chore: add py38 to Dockerfile + changelog update
+* docs: show link to benchmarks in README
+
+1.4.1
+-----
+
+* release(1.4.1): ensure documentation and version number are correct
+* docs: update docstring for connected\_components
+* docs: add example of connectivity argument for region\_graph
+
+1.4.0
+-----
+
+* release(1.4.0): Support 26, 18, and 6 connectivities
+* feat: add 6 and 18 connected functions (#26)
+* Update README.md
+* feat: region graph function (#20)
+* Update README.md
+* Update README.md
+* docs: add table to benchmarks on head to head comparisons
+* docs+fix: random benchmark was not using 26-connected on scipy
+* Update README.md
+* Update README.md
+* docs: add benchmark for random binary images
+* Update README.md
+* docs: update changelog
+* docs: change language around max\_labels usage
+* docs: update instructions for extracting labels
+* docs: update multilabel benchmark for 1.2.2
+* chore: update perf.py with new way of finding max labels
+* docs: update head to head benchmark
+
+1.2.2
+-----
+
+* release(1.2.2): avoid copying output to numpy array
+* perf: save time and memory by not copying to numpy array (#19)
+
+1.2.1
+-----
+
+* release(1.2.1): drop union by size for half memory and 10-20% more speed
+* perf: remove union-by-size for lower memory and better performance (#17)
+* fix: merge error
+* refactor: move includes inside ifndef
+* docs: update description in hpp file
+* chore: remove scikit-image dependency from manual testing
+
+1.2.0
+-----
+
+* release(1.2.0): return an array with a contiguous sequence of labels
+* feat: return renumbered array (#14)
+* docs: correct dense label times to 1.9 sec
+* Update README.md
+* docs: writeup of benchmark
+* docs: added benchmark images
+* test+fix: adapt perf.py to work correctly
+
+1.1.1
+-----
+
+* release: small performance improvement from tweaked decision tree
+* test: performance masurement
+* test: added script for manual testing
+* docs: give shoutout to Sutheebanjard
+* feat: two decision tree tweaks (#10)
+* chore: upgrade Dockerfile for new scipy test
+
+1.1.0
+-----
+
+* release: 1.1.0 - Change algorithm to decision tree
+* docs: shout out to Grana et al
+* feat: replace forward pass with decision tree (#8)
+* docs: add citation for Wu et al 2005 to README
+* chore: update setup.cfg
+
+1.0.7
+-----
+
+* release: 1.0.7
+* fix: no match for std::max due to type mismatch
+* chore: update ChangeLog
+
+1.0.6
+-----
+
+* release: 1.0.6
+* perf: skip unifying equal labels
+* refactor: use C++ style casts rather than C style
+* chore: add GPLv3+ classifier
+* fix: compiler warning about printf statement
+* chore: bump version to 1.0.5
+* fix: 64-bit array length support (#5)
+* docs: add 64-bit test commented out
+* fix: floor of 1 rather than 0 for max\_labels
+* fix: zero is a nonsensical value for max\_labels, so set to voxels
+* test: drop py34 add py37
+* fix: additional places that a 64-bit value could hide
+* fix: ensure voxels is computed without an overflow
+* fix: handling max\_labels > int32
+
+1.0.4
+-----
+
+* chore: version 1.0.4
+* perf: use libdivide for non-power-of two coord calculations
+* Update README.md
+
+1.0.3
+-----
+
+* chore: bump \_\_VERSION\_\_ to 1.0.3
+* test: added 3d asymmetrical test
+* feat: better compatibility with F and C array orders
+* Update README.md
+* Update README.md
+
+1.0.2
+-----
+
+* fix: numpy 1.16.0 stopped building binaries for Python 3.4 so use 1.15.4 instead
+* chore: bump version to 1.0.2
+
+1.0.1
+-----
+
+* chore: bump version to 1.0.1
+* Update README.md
+* fix: Windows wheel creation
+* Update README.md
+* docs: add PyPI badge
+* docs: corrected cc3d to connected-components-3d for pip
+
+1.0.0
+-----
+
+* docs: AUTHORS and ChangeLog
+* feat: Dockerfile builds for manylinux cc3d binaries
+* docs: better algorithm description + pip install for upcoming release
+* docs: added line about multi-label compatibility
+* docs: info on max\_labels
+* docs: added references to papers
+* fix: added error messages for unmappable values
+* feat: added support for bounding union-find memory
+* docs: added some tips for memory pressure
+* docs: added help and installation instructions
+* chore: remove debug code
+* test: ensure a production sized cube doesn't segfault
+* fix: support larger volumes with uint32
+* docs: added travis button
+* chore: added requirements.txt
+* test: added adjacency test
+* test: added travis
+* test: added 3d cross test
+* fix: handle if all voxels are different
+* fix: certain labels without upper left neighbors were not added to equiv table
+* test: starting to do more elaborate testing
+* fix: add back the equivalence raster pass
+* test: manual testing script
+* fix: neighbor calculation was off, more testing required
+* feat: basic test has output, but bugs
+* feat: added untested version of cython wrapper
+* fix: create new labels on unification
+* test: printing a basic test result
+* fix: compiles
+* init: skeleton of two pass algorithm based on a modernization of Rosenfeld & Pflatz
+* Initial commit
