@@ -46,7 +46,17 @@ This project requires Python [Version] or higher.
 
 ```
 
+    from mldf import MIND
 
+
+    # some neural network
+    udf_func = your_input
+    resolution = 256
+
+    # for more paremeters, see the source code
+    mind_mesh_extractor = MIND(udf_func, resolution)
+
+    mesh = mind_mesh_extractor.run()
 
 ```
 
@@ -55,16 +65,18 @@ This project requires Python [Version] or higher.
 
 If you find this repository or our paper useful, please cite our work:
 
-\`\`\`bibtex
-@inproceedings{
-    chen2025mind,
-    title={{MIND}: Material Interface Generation from {UDF}s for Non-Manifold Surface Reconstruction},
-    author={Xuhui Chen and Fei Hou and Wencheng Wang and Hong Qin and Ying He},
-    booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
-    year={2025},
-    url={https://openreview.net/forum?id=4lR9OhAisI}
-}
-\`\`\`
+```
+
+    @inproceedings{
+        chen2025mind,
+        title={{MIND}: Material Interface Generation from {UDF}s for Non-Manifold Surface Reconstruction},
+        author={Xuhui Chen and Fei Hou and Wencheng Wang and Hong Qin and Ying He},
+        booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+        year={2025},
+        url={https://openreview.net/forum?id=4lR9OhAisI}
+    }
+
+```
 
 ---
 
