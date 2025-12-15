@@ -1,2 +1,2 @@
-add_subdirectory(mldf_cxx)
+add_subdirectory(mind_cxx)
 

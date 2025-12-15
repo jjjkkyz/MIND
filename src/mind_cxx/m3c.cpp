@@ -49,7 +49,7 @@ using namespace std;
 using namespace SurfaceMesh::M3C;
 
 
-#define M_PI 3.1415926;
+
 
  // -----------------------------------------------------------------------------
  //

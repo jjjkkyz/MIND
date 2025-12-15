@@ -19,11 +19,11 @@ add_subdirectory(pybind11)
 add_subdirectory(src)
 # Add a library using FindPython's tooling (pybind11 also provides a helper like
 # this)
-# include_directories("E:\\WN_sep\\MLDF\\src\\third\\polyscope")
+
 
 pybind11_add_module(_core src/my_module.cpp)
 target_link_libraries(_core PRIVATE WN_API)
 # target_compile_features(_core PRIVATE cxx_std_20)
 # target_link_libraries(_core PRIVATE polyscope)
 # The install directory is the output (wheel) directory
-install(TARGETS _core DESTINATION mldf)
+install(TARGETS _core DESTINATION mind)

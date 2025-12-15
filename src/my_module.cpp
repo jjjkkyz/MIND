@@ -2,7 +2,7 @@
 #include <pybind11/numpy.h> // 引入 NumPy 支持
 #include <pybind11/stl.h>
 
-#include "mldf_cxx/mldf_api.h"
+#include "mind_cxx/mldf_api.h"
 
 namespace py = pybind11;
 
@@ -135,7 +135,15 @@ py::array_t<int> grid_cut(py::array_t<int> origin_array, py::array_t<int> relabe
     auto out_array = py::array_t<int>(shape);
     int* output_pt = static_cast<int*>(out_array.request().ptr);
     std::memset(output_pt, 0, shape[0] * shape[1] * shape[2] * sizeof(int));
-    grid_graph_cut(data,relabel, udf_data, output_pt, N, shape[0], shape[1], shape[2], loop);
+    try
+    {
+        grid_graph_cut(data,relabel, udf_data, output_pt, N, shape[0], shape[1], shape[2], loop);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
     return out_array;
 }
 

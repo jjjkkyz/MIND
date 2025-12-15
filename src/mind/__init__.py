@@ -9,9 +9,10 @@ import trimesh
 from scipy.spatial import KDTree
 import polyscope as ps
 import cc3d
-import mldf
 import collections
 from scipy.sparse import coo_matrix
+from torch.optim import Optimizer
+from typing import Optional
 
 from ._core import __doc__, __version__, erode, dilate, grid_cut,grid_expansion, label_graph,label_graph_merge, inplace_label, m3c_py, is_bound
 import math
@@ -23,94 +24,150 @@ __all__ = ["__doc__", "__version__", "erode", "dilate", "grid_cut", "grid_expans
 
 
 
-class VectorAdam(torch.optim.Optimizer):
+class AdamWithDirectionProjection(Optimizer):
+    """
+    一个支持将更新量投影到给定方向张量的 Adam 优化器。
+    
+    该实现可以处理投影方向 P_i = (0, 0, 0) 的情况，此时应用完整的 Adam 更新量。
+    """
 
-    # 初始化优化器参数，lr,betas,eps/axis.
-    def __init__(self, params, lr=0.1, betas=(0.9, 0.999), eps=1e-8, axis=-1):
-        defaults = dict(lr=lr, betas=betas, eps=eps, axis=axis)
-        super(VectorAdam, self).__init__(params, defaults)
+    def __init__(self, params, lr=0.001, betas=(0.9, 0.999), eps=1e-8,
+                 weight_decay=0, amsgrad=False, projection_direction: Optional[torch.Tensor] = None):
+        
+        # ... (参数校验与上一个实现相同，省略以节省空间) ...
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if eps < 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
+        if weight_decay < 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
-    # 实现了参数更新，对于每个参数组，
-    # param_group中的参数来更新，使用梯度，grad和学习率lr,根据Adam算法步骤更新参数。
-    def __setstate__(self, state):
-        super(VectorAdam, self).__setstate__(state)
+        defaults = dict(lr=lr, betas=betas, eps=eps,
+                        weight_decay=weight_decay, amsgrad=amsgrad)
+        
+        super().__init__(params, defaults)
+        
+        self.projection_direction = None
+        
+        param_list = self.param_groups[0]['params']
+        p_to_project = param_list[0]
+        
+        if projection_direction is not None:
+            if p_to_project.shape != projection_direction.shape:
+                raise ValueError(f"Parameter and projection direction must have the same shape. Got {p_to_project.shape} and {projection_direction.shape}")
+            
+            # 存储投影方向，并确保其在正确的设备上且不可求导
+            self.projection_direction = projection_direction.detach().to(p_to_project.device)
 
-    @torch.no_grad()
-    def step(self, N = None, loss = None, selected = None):
-        '''
-        实现了一种优化算法，用于在训练过程中更新参数以最小化损失函数。它基于动量方法和自适应学习率的思想，通过计算梯度的一阶和二阶矩估计来调整参数的更新幅度。
-        ---
-            1、遍历每个参数组(param_group):对于每个参数组,获取学习率lr、动量参数b1 b2、缩小项eps,以及可选的轴,axis
-            ---
-            2、对于每个参数p:
-                -检查并进行懒惰初始化：如果当前参数的状态 state 为空，则初始化为零张量。
-                -更新步数：将状态中的步数 step 加1。
-                -计算梯度 g1:将之前的梯度 g1 乘以动量参数 b1,并加上当前参数的梯度 grad 乘以 (1-b1)。
-                -如果指定了轴 axis:
-                    -计算梯度平方的范数：在指定轴上计算梯度的范数，并扩展维度后复制到与梯度相同的维度。
-                    -计算梯度平方 g2:将之前的梯度平方 g2 乘以动量参数 b2,并加上计算得到的梯度平方 grad_sq 乘以 (1-b2)。
-                -否则：
-                    -计算梯度平方 g2:将之前的梯度平方 g2 乘以动量参数 b2,并加上当前参数的梯度平方 grad.square() 乘以 (1-b2)。
-                -计算 m1 和 m2:通过除以衰减系数的差值来校正梯度平均值 g1 和 g2。
-                -计算最终的梯度：将校正后的 g1 和 g2 进行处理，并除以 eps 加上 g2 开方的结果。
-                -更新参数：将参数 p 的值减去计算得到的梯度 gr 乘以学习率 lr。
-        '''
+
+    def step(self, closure=None):
+        """执行单个优化步骤。"""
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
         for group in self.param_groups:
-            lr = group['lr']
-            b1, b2 = group['betas']
-            eps = group['eps']
-            axis = group['axis']
-            for p in group["params"]:
+            # 获取优化方向（如果有）
+            p_to_project = group['params'][0]
+            P = self.projection_direction
+            
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                
+                grad = p.grad
+                if grad.is_sparse:
+                    raise RuntimeError('AdamWithDirectionProjection does not support sparse gradients, please consider SparseAdam instead')
+                
+                # --- 标准 Adam 计算逻辑 (省略状态初始化和动量更新，与上一个实现相同) ---
                 state = self.state[p]
-                # Lazy initialization
-                if len(state) == 0:
-                    state["step"] = 0
-                    state["g1"] = torch.zeros_like(p.data)
-                    state["g2"] = torch.zeros_like(p.data)
+                
+                # State initialization (如果 state 为空，在这里进行初始化)
+                if not state:
+                    state['step'] = 0
+                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    if group['amsgrad']:
+                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
 
-                g1 = state["g1"]
-                g2 = state["g2"]
-                state["step"] += 1
-                grad = p.grad.data
-                # print(f"grad:{grad.shape}")
+                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+                if group['amsgrad']:
+                    max_exp_avg_sq = state['max_exp_avg_sq']
+                beta1, beta2 = group['betas']
 
-                g1.mul_(b1).add_(grad, alpha=1-b1)
-                if axis is not None:
-                    dim = grad.shape[axis]
-                    grad_norm = torch.norm(grad, dim=axis).unsqueeze(axis).repeat_interleave(dim, dim=axis)
-                    grad_sq = grad_norm * grad_norm
-                    g2.mul_(b2).add_(grad_sq, alpha=1-b2)
+                state['step'] += 1
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
+
+                # Perform weight decay
+                if group['weight_decay'] != 0:
+                    grad = grad + group['weight_decay'] * p
+
+                # 1. Update moments
+                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                
+                # 2. Compute denominator
+                if group['amsgrad']:
+                    torch.max(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
+
+                    denom = (max_exp_avg_sq.sqrt() / (bias_correction2 ** 0.5)).add_(group['eps'])
                 else:
-                    g2.mul_(b2).add_(grad.square(), alpha=1-b2)
+                    denom = (exp_avg_sq.sqrt() / (bias_correction2 ** 0.5)).add_(group['eps'])
 
-                m1 = g1 / (1-(b1**state["step"]))
-                m2 = g2 / (1-(b2**state["step"]))
-                gr = m1 / (eps + m2.sqrt())
-                # 确保 gr 和 p 的形状匹配
-                # gr = gr[selected]
-                # print(gr.shape)
-                if N is not None:
-                    # 投影似乎并不会有很好的效果
-                    # n_len_sq = torch.sum(N ** 2, axis=-1, keepdim=True)
-                    # proj_gr = torch.sum(gr * N, axis=-1, keepdim=True) * N
 
-                    # # Update parameter along the projected gradient
-                    # p.data.sub_(proj_gr, alpha=lr)
-
-                    loss = loss.unsqueeze(1)
-
-                    gr_length = torch.norm(gr)
-                    N_normalized = N / torch.norm(N)# 将向量 N 归一化为单位向量
-                    N = N_normalized * gr_length# 调整向量 N 的长度，使其与向量 gr 相同
-                    # N = N[selected].float()
-                    N = loss * N + (1 - loss) * gr
-                    # gr_normalized = torch.mul(gr_length.unsqueeze(-1), N)
-                    # p.data[selected].sub_(N, alpha=lr)
-                    # p.data[selected] = p.data[selected].sub(N, alpha=lr)
-                    p.data.sub_(N,alpha=lr)
+                step_size = group['lr'] / bias_correction1
+                
+                # 3. Calculate the standard Adam update amount (Delta_d_adam)
+                adam_update = -step_size * (exp_avg / denom)
+                
+                # 4. === 投影逻辑 (仅对需要投影的参数执行) ===
+                if p is p_to_project and P is not None:
+                    
+                    # 计算 P 的平方模长 (V, 1)
+                    P_sq_norm = (P * P).sum(dim=-1, keepdim=True)
+                    
+                    # 创建一个掩码来识别 P_i != 0 的位置
+                    # 如果 P_sq_norm > 0，则需要投影；否则 P_i = 0，不需要投影
+                    project_mask = P_sq_norm > 0
+                    
+                    # 4.1. 投影计算：只在 project_mask 为 True 的地方计算投影
+                    
+                    # 分子：(adam_update . P) -> shape (V, 1)
+                    dot_product_num = (adam_update * P).sum(dim=-1, keepdim=True)
+                    
+                    # 分母：使用 P_sq_norm
+                    dot_product_den = P_sq_norm.clamp(min=group['eps']) # clamp 确保不会除以零 (尽管有 mask，但为了数值稳定)
+                    
+                    # 投影系数 (V, 1)
+                    projection_ratio = dot_product_num / dot_product_den
+                    
+                    # 投影后的更新量 Delta_d_proj = ratio * P
+                    projected_update = projection_ratio * P
+                    
+                    # 4.2. 组合更新量
+                    
+                    # 初始化最终更新量为 Adam 更新量 (默认：无约束)
+                    final_update = adam_update
+                    
+                    # 仅在需要投影的位置，将 Adam 更新量替换为投影后的更新量
+                    final_update[project_mask.expand_as(final_update)] = \
+                        projected_update[project_mask.expand_as(projected_update)]
+                    
+                    # 4.3. 应用最终更新量
+                    p.data.add_(final_update)
+                    
                 else:
-                    # Update parameter using regular gradient
-                    p.data.sub_(gr, alpha=lr)
+                    # 5. 应用标准 Adam 更新量 (如果 P is None 或 p 不是目标参数)
+                    p.data.add_(adam_update)
+
+        return loss
+
 
 def edge_to_lap(activate_edges, max_index):
     neighbors = collections.defaultdict(set)
@@ -170,7 +227,7 @@ def ml_laplacian_calculation(mesh, face_label):
     return all_laplacian
 
 def ml_laplacian_step(all_laplacian_op, samples):
-    loss = None
+    loss = torch.IntTensor(0).cuda()
     for i in range(len(all_laplacian_op)):
         laplacian_op = all_laplacian_op[i]
         laplacian_v = torch.sparse.mm(laplacian_op, samples[:, 0:3])
@@ -213,9 +270,9 @@ class MIND:
         self.r2=r2
 
         if bound_min is None:
-            bound_min = torch.tensor([-1+self.threshold, -1+self.threshold, -1+self.threshold], dtype=torch.float32)
+            bound_min = torch.tensor([-1, -1, -1], dtype=torch.float32)
         if bound_max is None:
-            bound_max = torch.tensor([1-self.threshold, 1-self.threshold, 1-self.threshold], dtype=torch.float32)
+            bound_max = torch.tensor([1, 1, 1], dtype=torch.float32)
         if isinstance(bound_min, list):
             bound_min = torch.tensor(bound_min, dtype=torch.float32)
         if isinstance(bound_max, list):
@@ -257,14 +314,15 @@ class MIND:
                 ndf, threshold, spacing=(2 / (resolution - 1), 2 / (resolution - 1), 2 / (resolution - 1)))
             vertices -= 1
             mesh = trimesh.Trimesh(vertices, triangles, process=False)
+            if bound_min is not None:
+                bound_min = bound_min.cpu().numpy()
+                bound_max = bound_max.cpu().numpy()
+                mesh.apply_scale((bound_max - bound_min) / 2)
+                mesh.apply_translation((bound_min + bound_max) / 2)
         except ValueError:
             print("threshold too high")
             mesh = None
-        if bound_min is not None:
-            bound_min = bound_min.cpu().numpy()
-            bound_max = bound_max.cpu().numpy()
-            mesh.apply_scale((bound_max - bound_min) / 2)
-            mesh.apply_translation((bound_min + bound_max) / 2)
+        
 
         return mesh
 
@@ -325,12 +383,14 @@ class MIND:
 
     def generate_pointcloud_mesh_op(self, sample_num=1000000, batch_size=20000):
         mesh = self.threshold_MC(self.extract_fields(),self.r2,self.resolution,self.bound_min,self.bound_max)
-        mesh.export("MC.ply")
+        if mesh is None:
+            raise ValueError("mesh extraction failed")
+        mesh.export("temp_mesh.ply")
         input_points, face_index = mesh.sample(sample_num, return_index=True)  # weighted by face area by default
         normals = torch.from_numpy(mesh.face_normals[face_index]).cuda().float()
         samples = torch.from_numpy(input_points).cuda().float()
         samples.requires_grad = True
-        optimizer = VectorAdam([samples], lr=0.0005)
+        optimizer = AdamWithDirectionProjection([samples],projection_direction=normals, lr=0.0005)
 
         max_iter = self.sample_pc_iter
         for iter_step in range(max_iter):
@@ -359,13 +419,13 @@ class MIND:
             return np.zeros_like(voxel)
         labels_out = cc3d.connected_components(voxel, connectivity=26).astype(int)
         labels_out = labels_out
-        erode_label = mldf.erode(labels_out, m1, 2, 26)
+        erode_label = erode(labels_out, m1, 1, 26)
         # view_data(erode_label)
         relabel = cc3d.connected_components(erode_label, connectivity=26).astype(int)
         if relabel.max() > 0:
-            labels_out = mldf.grid_cut(labels_out, relabel,self.u, relabel.max(), -1)
-            label_map = mldf.label_graph(labels_out, m2, labels_out.max(), 0.4)
-            sub_label = mldf.inplace_label(labels_out, label_map)
+            labels_out = grid_cut(labels_out, relabel,self.u, relabel.max(), -1)
+            label_map = label_graph(labels_out, m2, labels_out.max(), 0.4)
+            sub_label = inplace_label(labels_out, label_map)
             print(sub_label.max())
             # if sub_label.max()>=3:
             #     view_two(labels_out, erode_label)
@@ -400,38 +460,40 @@ class MIND:
         labels[mask==1]=0
 
         # mesh为0~1坐标系，同样需要缩放
-        v, f, f_label = mldf.m3c_py(labels, np.abs(wn))
+        v, f, f_label = m3c_py(labels, np.abs(wn))
         v -= 0.5
-        self.mesh = trimesh.Trimesh(v,f)
+        mesh = trimesh.Trimesh(v,f)
+        self.mesh = mesh
         bound_min = self.bound_min.cpu().numpy()
         bound_max = self.bound_max.cpu().numpy()
         self.mesh.apply_scale((bound_max - bound_min) / 2)
         self.mesh.apply_translation((bound_min + bound_max) / 2)
-        self.mesh.export("result.ply")
+        # self.mesh.export("result.ply")
         # view_with_mesh(expansion_labels,mesh)
         self.face_label = f_label
-        np.save(f"wn.npy", wn)
-        np.save(f"labels.npy", labels)
+        return mesh, f_label
+        # np.save(f"wn.npy", wn)
+        # np.save(f"labels.npy", labels)
 
-    def postprocess_mesh(self):
-        face_label = self.face_label
+    def postprocess_mesh(self, mesh: trimesh.Trimesh, face_label: np.ndarray):
+        faces = np.asarray(mesh.faces)
+        vertices = np.asarray(mesh.vertices)
         inverse_mask = np.asarray(face_label[:, 0] > face_label[:, 1])
         faces[inverse_mask] = faces[inverse_mask][:, ::-1]
 
-        mesh = o3d.geometry.TriangleMesh()
-        mesh.vertices = o3d.utility.Vector3dVector(np.asarray(self.mesh.vertices))
-        mesh.triangles = o3d.utility.Vector3iVector(np.asarray(self.mesh.faces))
+        o3d_mesh = o3d.geometry.TriangleMesh()
+        o3d_mesh.vertices = o3d.utility.Vector3dVector(np.asarray(mesh.vertices))
+        o3d_mesh.triangles = o3d.utility.Vector3iVector(np.asarray(mesh.faces))
 
         # mesh.scale(2, center=(0.0, 0.0, 0.0))
 
-        R = mesh.get_rotation_matrix_from_xyz((0, np.pi / 2, 0))
-        mesh.rotate(R, center=(0, 0, 0))
-        vv = np.asarray(mesh.vertices)
+        R = o3d_mesh.get_rotation_matrix_from_xyz((0, np.pi / 2, 0))
+        o3d_mesh.rotate(R, center=(0, 0, 0))
+        vv = np.asarray(o3d_mesh.vertices)
         vv[:, -1] = -vv[:, -1]
         trimesh_mesh = trimesh.Trimesh(vertices=vv, faces=faces, process=False)
         trimesh_mesh.merge_vertices()
-        trimesh_mesh.vertices += 1 / 256
-        trimesh_mesh.export("ppp.ply")
+        trimesh_mesh.vertices += 1 / self.resolution
         udf_value = self.query_func(torch.from_numpy(np.asarray(trimesh_mesh.vertices)))
         mask = udf_value < self.r2
         # print(mask.shape)
@@ -463,8 +525,8 @@ class MIND:
         trimesh_mesh.update_faces(remain_face_mask)
         # self.mesh.update_vertices(mask)
         trimesh_mesh.remove_unreferenced_vertices()
-        trimesh_mesh.export("aabb.ply")
         self.mesh = trimesh_mesh
+        return trimesh_mesh
 
     def update_learning_rate(self, iter_step):
         warn_up = self.warm_up_end
@@ -476,15 +538,15 @@ class MIND:
         for g in self.optimizer.param_groups:
             g['lr'] = lr
 
-    def op_msdf_mesh(self):
+    def op_msdf_mesh(self,mesh, face_label):
         query_func = self.query_func
-        xyz = torch.from_numpy(self.mesh.vertices.astype(np.float32)).cuda()
+        xyz = torch.from_numpy(mesh.vertices.astype(np.float32)).cuda()
         xyz.requires_grad = True
 
-        all_laplacian = ml_laplacian_calculation(self.mesh, self.face_label)
+        all_laplacian = ml_laplacian_calculation(mesh, face_label)
         print(f"We have {len(all_laplacian)} label for calculate laplacian")
 
-        xyz = torch.from_numpy(self.mesh.vertices.astype(np.float32)).cuda()
+        xyz = torch.from_numpy(mesh.vertices.astype(np.float32)).cuda()
         xyz.requires_grad = True
         num_samples = xyz.shape[0]
 
@@ -522,14 +584,15 @@ class MIND:
             # 累加到 xyz.grad
             self.optimizer.step()
             print(" {} iteration, udf loss ={},loss_non_manifold_lap={}".format(it,all_loss,non_manifold_lap_loss))
-        self.final_mesh = trimesh.Trimesh(vertices=xyz.detach().cpu().numpy(), faces=self.mesh.faces, process=False)
+        self.final_mesh = trimesh.Trimesh(vertices=xyz.detach().cpu().numpy(), faces=mesh.faces, process=False)
 
         return self.final_mesh
 
     def run(self):
         pc = self.generate_pointcloud_mesh_op()
-        self.extract_mesh(pc)
-        return self.op_msdf_mesh()
+        mesh, face_label = self.extract_mesh(pc)
+        mesh = self.postprocess_mesh(mesh, face_label)
+        return self.op_msdf_mesh(mesh, face_label)
 
 
 

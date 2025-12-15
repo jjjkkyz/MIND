@@ -7,7 +7,7 @@
 void compute_neighborhood(
 	int* neighborhood,
 	const int x, const int y, const int z,
-	const uint64_t sx, const uint64_t sy, const uint64_t sz,
+	const size_t sx, const size_t sy, const size_t sz,
 	const int connectivity
 ) {
 
@@ -468,7 +468,7 @@ const std::unordered_map<std::pair<int, int>, std::pair<int, int>, pair_hash, pa
 }
 
 
-bool detect_bound(int* input, size_t sz, size_t sy, size_t sx) {
+bool detect_bound(int* input, size_t sz, size_t sy, size_t sx){
 	size_t sxy = sx * sy;
 	int connectivity = 26;
 	int neighborhood[26];

@@ -2,6 +2,8 @@
 
 #include <unordered_map>
 #include <set>
+#include <cstdint>
+#include <cstddef> 
 
 
 //struct pair_hash {
@@ -13,10 +15,10 @@
 struct pair_hash {
 	template <class T1, class T2>
 	std::size_t operator()(const std::pair<T1, T2>& p) const {
-		// ÕýÈ·ÊµÏÖ¹þÏ£º¯Êý£¨Èç½áºÏÁ½¸öÖµµÄ¹þÏ££©
+		// ï¿½ï¿½È·Êµï¿½Ö¹ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Ä¹ï¿½Ï£ï¿½ï¿½
 		auto hash1 = std::hash<T1>{}(p.first);
 		auto hash2 = std::hash<T2>{}(p.second);
-		return hash1 ^ (hash2 << 1); // »òÆäËû×éºÏ·½Ê½
+		return hash1 ^ (hash2 << 1); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï·ï¿½Ê½
 	}
 };
 
@@ -24,7 +26,7 @@ struct pair_hash {
 void compute_neighborhood(
 	int* neighborhood,
 	const int x, const int y, const int z,
-	const uint64_t sx, const uint64_t sy, const uint64_t sz,
+	const size_t sx, const size_t sy, const size_t sz,
 	const int connectivity
 );
 
@@ -35,10 +37,10 @@ void compute_neighborhood_all(
 	const int connectivity = 26
 );
 
-// ×Ô¶¨Òå±È½Ïº¯Êý
+// ï¿½Ô¶ï¿½ï¿½ï¿½È½Ïºï¿½ï¿½ï¿½
 struct pair_equal {
 	bool operator()(const std::pair<int, int>& a, const std::pair<int, int>& b) const {
-		// ½ö±È½ÏµÚÒ»¸öÔªËØ£¨×Ô¶¨ÒåÂß¼­£©
+		// ï¿½ï¿½ï¿½È½Ïµï¿½Ò»ï¿½ï¿½Ôªï¿½Ø£ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½
 		return (a.first == b.first)&&(a.second == b.second);
 	}
 };
