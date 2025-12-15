@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <queue>
+#include <list>
 #include "gco-v3.0/GCoptimization.h"
 #include "m3c.h"
 #include "utils.h"

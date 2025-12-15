@@ -156,7 +156,7 @@ int M3CEntireVolume::createMesh()
     std::cout<<"1"<<std::endl;
     size_t fileDim[3] = { dims[0], dims[1], dims[2] };
     size_t posDim[3] = { fileDim[0] + 1, fileDim[1] + 1, fileDim[2] + 1 };
-    float res[3] = { 1.0 / float(dims[0]),1.0 / float(dims[1]),1.0 / float(dims[2]) };
+    float res[3] = { 1.0f / float(dims[0]), 1.0f / float(dims[1]), 1.0f / float(dims[2]) };
     
     totalPoints = fileDim[0] * fileDim[1] * fileDim[2];
 
@@ -600,7 +600,7 @@ void M3CEntireVolume::initialize_nodes(VoxelCoord* p, Node* v, int ns, int sx, i
     int id;
     double tx, ty, tz, halfdx, halfdy, halfdz;
     const int sxy = sx * sy;
-    float res[3] = { 1.0 / float(sx),1.0 / float(sy),1.0 / float(sz) };
+    float res[3] = { 1.0f / float(sx), 1.0f / float(sy), 1.0f / float(sz) };
     // node id starts with 0....
     for (int x = 0; x < sx-1; x++)
     for (int y = 0; y < sy-1; y++)

@@ -1,0 +1,10 @@
+open3d
+pymeshlab
+numpy
+networkx
+scikit-image
+trimesh
+scipy
+polyscope
+connected-components-3d
+pybind11

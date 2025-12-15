@@ -12,14 +12,16 @@ py::array_t<int> erode(py::array_t<int> input_array, py::array_t<int> mask_array
     if (input_array.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (input_array.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!input_array.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be double");
     }
     // 验证数组维度和类型
     if (mask_array.ndim() != 3) {
         throw std::runtime_error("Mask must be a 3D array");
     }
-    if (mask_array.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!mask_array.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Mask Data type must be double");
     }
 
@@ -59,14 +61,16 @@ py::array_t<int> dilate(py::array_t<int> input_array, py::array_t<int> mask_arra
     if (input_array.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (input_array.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!input_array.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be double");
     }
     // 验证数组维度和类型
     if (mask_array.ndim() != 3) {
         throw std::runtime_error("Mask must be a 3D array");
     }
-    if (mask_array.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!mask_array.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Mask Data type must be double");
     }
 
@@ -106,7 +110,8 @@ py::array_t<int> grid_cut(py::array_t<int> origin_array, py::array_t<int> relabe
     if (origin_array.ndim() != 3 || relabel_array.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (origin_array.dtype() != py::dtype::of<int>() || relabel_array.dtype() != py::dtype::of<int>() ) {
+    // 修改: 使用 !is() 替代 !=
+    if (!origin_array.dtype().is(py::dtype::of<int>()) || !relabel_array.dtype().is(py::dtype::of<int>()) ) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -140,7 +145,8 @@ py::array_t<int> grid_expansion(py::array_t<int> orient_array, py::array_t<int> 
     if (orient_array.ndim() != 3 || unorient_array.ndim() != 3 || sign.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (orient_array.dtype() != py::dtype::of<int>() || unorient_array.dtype() != py::dtype::of<int>() || sign.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!orient_array.dtype().is(py::dtype::of<int>()) || !unorient_array.dtype().is(py::dtype::of<int>()) || !sign.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -175,7 +181,8 @@ std::unordered_map<int, int> label_graph(py::array_t<int> origin_array, py::arra
     if (origin_array.ndim() != 3 || mask2.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (origin_array.dtype() != py::dtype::of<int>() || mask2.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!origin_array.dtype().is(py::dtype::of<int>()) || !mask2.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -203,7 +210,8 @@ std::unordered_map<int, int> label_graph_merge(py::array_t<int> origin_array, py
     if (origin_array.ndim() != 3 || sign.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (origin_array.dtype() != py::dtype::of<int>() || sign.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!origin_array.dtype().is(py::dtype::of<int>()) || !sign.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -232,7 +240,8 @@ py::array_t<int> inplace_label_py (py::array_t<int> origin_array, std::unordered
     if (origin_array.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (origin_array.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!origin_array.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -253,7 +262,8 @@ bool is_bound(py::array_t<int> origin_array) {
     if (origin_array.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (origin_array.dtype() != py::dtype::of<int>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!origin_array.dtype().is(py::dtype::of<int>())) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -272,7 +282,8 @@ m3c_py(py::array_t<int> label_array, py::array_t<double> value_array) {
     if (label_array.ndim() != 3 || value_array.ndim() != 3) {
         throw std::runtime_error("Input must be a 3D array");
     }
-    if (label_array.dtype() != py::dtype::of<int>() || value_array.dtype() != py::dtype::of<double>()) {
+    // 修改: 使用 !is() 替代 !=
+    if (!label_array.dtype().is(py::dtype::of<int>()) || !value_array.dtype().is(py::dtype::of<double>())) {
         throw std::runtime_error("Input Data type must be int");
     }
 
@@ -289,7 +300,8 @@ m3c_py(py::array_t<int> label_array, py::array_t<double> value_array) {
     if (shape_v[0] != shape[0] || shape_v[1] != shape[1] || shape_v[2] != shape[2]) {
         throw std::runtime_error("Inputs Must have same dim");
     }
-    size_t dim[3] = {shape[0],shape[1],shape[2]};
+    // 保留了之前你做的 narrowing cast 修复
+    size_t dim[3] = {static_cast<size_t>(shape[0]), static_cast<size_t>(shape[1]), static_cast<size_t>(shape[2])};
     M3CEntireVolume m3c(data, value_data, dim);
     std::cout<< "begin m3c"<<std::endl;
     m3c.execute();
