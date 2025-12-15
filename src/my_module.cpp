@@ -135,14 +135,7 @@ py::array_t<int> grid_cut(py::array_t<int> origin_array, py::array_t<int> relabe
     auto out_array = py::array_t<int>(shape);
     int* output_pt = static_cast<int*>(out_array.request().ptr);
     std::memset(output_pt, 0, shape[0] * shape[1] * shape[2] * sizeof(int));
-    try
-    {
-        grid_graph_cut(data,relabel, udf_data, output_pt, N, shape[0], shape[1], shape[2], loop);
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
+    grid_graph_cut(data,relabel, udf_data, output_pt, N, shape[0], shape[1], shape[2], loop);
     
     return out_array;
 }

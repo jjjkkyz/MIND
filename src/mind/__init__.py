@@ -169,6 +169,97 @@ class AdamWithDirectionProjection(Optimizer):
         return loss
 
 
+
+class VectorAdam(torch.optim.Optimizer):
+
+    # 初始化优化器参数，lr,betas,eps/axis.
+    def __init__(self, params, lr=0.1, betas=(0.9, 0.999), eps=1e-8, axis=-1):
+        defaults = dict(lr=lr, betas=betas, eps=eps, axis=axis)
+        super(VectorAdam, self).__init__(params, defaults)
+
+    # 实现了参数更新，对于每个参数组，
+    # param_group中的参数来更新，使用梯度，grad和学习率lr,根据Adam算法步骤更新参数。
+    def __setstate__(self, state):
+        super(VectorAdam, self).__setstate__(state)
+
+    @torch.no_grad()
+    def step(self, N = None, loss = None, selected = None):
+        '''
+        实现了一种优化算法，用于在训练过程中更新参数以最小化损失函数。它基于动量方法和自适应学习率的思想，通过计算梯度的一阶和二阶矩估计来调整参数的更新幅度。
+        ---
+            1、遍历每个参数组(param_group):对于每个参数组,获取学习率lr、动量参数b1 b2、缩小项eps,以及可选的轴,axis
+            ---
+            2、对于每个参数p:
+                -检查并进行懒惰初始化：如果当前参数的状态 state 为空，则初始化为零张量。
+                -更新步数：将状态中的步数 step 加1。
+                -计算梯度 g1:将之前的梯度 g1 乘以动量参数 b1,并加上当前参数的梯度 grad 乘以 (1-b1)。
+                -如果指定了轴 axis:
+                    -计算梯度平方的范数：在指定轴上计算梯度的范数，并扩展维度后复制到与梯度相同的维度。
+                    -计算梯度平方 g2:将之前的梯度平方 g2 乘以动量参数 b2,并加上计算得到的梯度平方 grad_sq 乘以 (1-b2)。
+                -否则：
+                    -计算梯度平方 g2:将之前的梯度平方 g2 乘以动量参数 b2,并加上当前参数的梯度平方 grad.square() 乘以 (1-b2)。
+                -计算 m1 和 m2:通过除以衰减系数的差值来校正梯度平均值 g1 和 g2。
+                -计算最终的梯度：将校正后的 g1 和 g2 进行处理，并除以 eps 加上 g2 开方的结果。
+                -更新参数：将参数 p 的值减去计算得到的梯度 gr 乘以学习率 lr。
+        '''
+        for group in self.param_groups:
+            lr = group['lr']
+            b1, b2 = group['betas']
+            eps = group['eps']
+            axis = group['axis']
+            for p in group["params"]:
+                state = self.state[p]
+                # Lazy initialization
+                if len(state) == 0:
+                    state["step"] = 0
+                    state["g1"] = torch.zeros_like(p.data)
+                    state["g2"] = torch.zeros_like(p.data)
+
+                g1 = state["g1"]
+                g2 = state["g2"]
+                state["step"] += 1
+                grad = p.grad.data
+                # print(f"grad:{grad.shape}")
+
+                g1.mul_(b1).add_(grad, alpha=1-b1)
+                if axis is not None:
+                    dim = grad.shape[axis]
+                    grad_norm = torch.norm(grad, dim=axis).unsqueeze(axis).repeat_interleave(dim, dim=axis)
+                    grad_sq = grad_norm * grad_norm
+                    g2.mul_(b2).add_(grad_sq, alpha=1-b2)
+                else:
+                    g2.mul_(b2).add_(grad.square(), alpha=1-b2)
+
+                m1 = g1 / (1-(b1**state["step"]))
+                m2 = g2 / (1-(b2**state["step"]))
+                gr = m1 / (eps + m2.sqrt())
+                # 确保 gr 和 p 的形状匹配
+                # gr = gr[selected]
+                # print(gr.shape)
+                if N is not None:
+                    # 投影似乎并不会有很好的效果
+                    # n_len_sq = torch.sum(N ** 2, axis=-1, keepdim=True)
+                    # proj_gr = torch.sum(gr * N, axis=-1, keepdim=True) * N
+
+                    # # Update parameter along the projected gradient
+                    # p.data.sub_(proj_gr, alpha=lr)
+
+                    loss = loss.unsqueeze(1)
+
+                    gr_length = torch.norm(gr)
+                    N_normalized = N / torch.norm(N)# 将向量 N 归一化为单位向量
+                    N = N_normalized * gr_length# 调整向量 N 的长度，使其与向量 gr 相同
+                    # N = N[selected].float()
+                    N = loss * N + (1 - loss) * gr
+                    # gr_normalized = torch.mul(gr_length.unsqueeze(-1), N)
+                    # p.data[selected].sub_(N, alpha=lr)
+                    # p.data[selected] = p.data[selected].sub(N, alpha=lr)
+                    p.data.sub_(N,alpha=lr)
+                else:
+                    # Update parameter using regular gradient
+                    p.data.sub_(gr, alpha=lr)
+
+
 def edge_to_lap(activate_edges, max_index):
     neighbors = collections.defaultdict(set)
 
@@ -227,7 +318,7 @@ def ml_laplacian_calculation(mesh, face_label):
     return all_laplacian
 
 def ml_laplacian_step(all_laplacian_op, samples):
-    loss = torch.IntTensor(0).cuda()
+    loss = 0.0
     for i in range(len(all_laplacian_op)):
         laplacian_op = all_laplacian_op[i]
         laplacian_v = torch.sparse.mm(laplacian_op, samples[:, 0:3])
@@ -235,10 +326,7 @@ def ml_laplacian_step(all_laplacian_op, samples):
         # lap_v = lap_v[head: min(head + self.max_batch, num_samples)]
         laplacian_loss = torch.sum(laplacian_v, dim=1)
         laplacian_loss = laplacian_loss.mean()
-        if loss is None:
-            loss = laplacian_loss
-        else:
-            loss += laplacian_loss
+        loss += laplacian_loss
     return loss
 
 
@@ -419,9 +507,10 @@ class MIND:
             return np.zeros_like(voxel)
         labels_out = cc3d.connected_components(voxel, connectivity=26).astype(int)
         labels_out = labels_out
-        erode_label = erode(labels_out, m1, 1, 26)
+        erode_label = erode(labels_out, m1, 2, 26)
         # view_data(erode_label)
         relabel = cc3d.connected_components(erode_label, connectivity=26).astype(int)
+
         if relabel.max() > 0:
             labels_out = grid_cut(labels_out, relabel,self.u, relabel.max(), -1)
             label_map = label_graph(labels_out, m2, labels_out.max(), 0.4)
@@ -485,17 +574,19 @@ class MIND:
         o3d_mesh.vertices = o3d.utility.Vector3dVector(np.asarray(mesh.vertices))
         o3d_mesh.triangles = o3d.utility.Vector3iVector(np.asarray(mesh.faces))
 
-        # mesh.scale(2, center=(0.0, 0.0, 0.0))
+        # o3d_mesh.scale(2, center=(0.0, 0.0, 0.0))
 
         R = o3d_mesh.get_rotation_matrix_from_xyz((0, np.pi / 2, 0))
         o3d_mesh.rotate(R, center=(0, 0, 0))
-        vv = np.asarray(o3d_mesh.vertices)
+        vv = 2*np.asarray(o3d_mesh.vertices)
         vv[:, -1] = -vv[:, -1]
         trimesh_mesh = trimesh.Trimesh(vertices=vv, faces=faces, process=False)
         trimesh_mesh.merge_vertices()
         trimesh_mesh.vertices += 1 / self.resolution
-        udf_value = self.query_func(torch.from_numpy(np.asarray(trimesh_mesh.vertices)))
+        trimesh_mesh.export("rotate.ply")
+        udf_value = self.query_func(torch.from_numpy(np.asarray(trimesh_mesh.vertices)).cuda().float())
         mask = udf_value < self.r2
+        mask = mask.detach().cpu().numpy()
         # print(mask.shape)
         face_mask = mask[trimesh_mesh.faces].any(axis=1)
         # 远离pc的面片集合
@@ -522,11 +613,12 @@ class MIND:
             remove_v_mask[remove_v] = True
         remain_face_mask = ~remove_v_mask[trimesh_mesh.faces].any(axis=1)
         face_label = face_label[remain_face_mask]
+        self.face_label = face_label
         trimesh_mesh.update_faces(remain_face_mask)
         # self.mesh.update_vertices(mask)
         trimesh_mesh.remove_unreferenced_vertices()
         self.mesh = trimesh_mesh
-        return trimesh_mesh
+        return trimesh_mesh, face_label
 
     def update_learning_rate(self, iter_step):
         warn_up = self.warm_up_end
@@ -591,7 +683,8 @@ class MIND:
     def run(self):
         pc = self.generate_pointcloud_mesh_op()
         mesh, face_label = self.extract_mesh(pc)
-        mesh = self.postprocess_mesh(mesh, face_label)
+        mesh.export("m3c.ply")
+        mesh, face_label = self.postprocess_mesh(mesh, face_label)
         return self.op_msdf_mesh(mesh, face_label)
 
 

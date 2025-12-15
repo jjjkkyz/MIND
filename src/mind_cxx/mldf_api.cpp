@@ -34,7 +34,7 @@ int smooth_Fn(int p1, int p2, int l1, int l2, void* data)
 {
     float* myData = (float*)data;
     if (l1 == l2) return 0;
-    return 1 + 10000*(myData[p1] + myData[p2]);
+    return 1;
 }
 
 
@@ -135,7 +135,7 @@ void grid_graph_expansion(int* labels, int* relabels, int* sign, int* output, in
             for (int x = 0; x < sx; x++) {
                 int loc = x + sx * y + sxy * z;
                 int fake = labels[loc];
-                // ¼ÇÂ¼ËùÓÐÔÚerode and relabelÖÐ±»¸¯Ê´µôµÄvoxel
+                // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½erode and relabelï¿½Ð±ï¿½ï¿½ï¿½Ê´ï¿½ï¿½ï¿½ï¿½voxel
                 if (fake != 0)
                 {
                     if (relabels[loc] == 0)
@@ -147,14 +147,14 @@ void grid_graph_expansion(int* labels, int* relabels, int* sign, int* output, in
                         sign_vec.push_back(sign[loc]);
                         remark_labels.push_back(0);
                     }
-                    //ÎÒÃÇÒ²ÐèÒªÓë±»¸¯Ê´µÄvoxelÁÚ½ÓµÄvoxel¼ÓÈëgrid expansion
+                    //ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½Òªï¿½ë±»ï¿½ï¿½Ê´ï¿½ï¿½voxelï¿½Ú½Óµï¿½voxelï¿½ï¿½ï¿½ï¿½grid expansion
                     else {
                         compute_neighborhood_all(neighborhood, x, y, z, sx, sy, sz, 6);
                         for (int i = 0; i < 6; i++) {
                             int neighboridx = loc + neighborhood[i];
-                            //¶ÔÓÚ±ß½çvoxel£¬neighborhood[i]Îª0£¬¶øunorient_region[loc]´Ë´¦±ØÎª0£¬ËùÒÔ²»Ðè¶îÍâ¿¼ÂÇ
+                            //ï¿½ï¿½ï¿½Ú±ß½ï¿½voxelï¿½ï¿½neighborhood[i]Îª0ï¿½ï¿½ï¿½ï¿½unorient_region[loc]ï¿½Ë´ï¿½ï¿½ï¿½Îª0ï¿½ï¿½ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½â¿¼ï¿½ï¿½
                             if (relabels[neighboridx] != 0) {
-                                //ÕÒµ½ÁËÖÜÎ§µÄvoxel£¬¼´Ê¹µ±Ç°voxelÔÚrelabelÖÐÓÐlabel£¬ÎÒÃÇÒ²Òª°ÑËü¼ÓÈëµ½grid expansionÖÐ
+                                //ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½Î§ï¿½ï¿½voxelï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½Ç°voxelï¿½ï¿½relabelï¿½ï¿½ï¿½ï¿½labelï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò²Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ëµ½grid expansionï¿½ï¿½
                                 idx_map[loc] = nPix;
                                 inv_idx_map.push_back(loc);
                                 nPix++;
@@ -263,11 +263,11 @@ void grid_graph_cut(int* origin_labels, int* relabels, float* udf, int* output, 
 
                     }
                     udf_list.push_back(udf[loc]);
-                    // Ò»Ò»¶ÔÓ¦µÄÇøÓò
+                    // Ò»Ò»ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                     if (old_new[pre].size() == 1) {
                         remark_labels[ii] = *old_new[pre].begin();
                     }
-                    //Ò»¶Ô¶à»òÕßÒ»¶Ô0
+                    //Ò»ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½0
                     else {
                         remark_labels[ii] = relabels[loc];
                     }
@@ -278,7 +278,7 @@ void grid_graph_cut(int* origin_labels, int* relabels, float* udf, int* output, 
         }
     }
 
-
+    std::cout << "begin GC init " << std::endl;
     GCoptimizationGeneralGraph* gc = new GCoptimizationGeneralGraph(nPix, N + 1);
     for (int z = 0; z < sz; z++) {
         for (int y = 0; y < sy; y++) {
@@ -300,13 +300,13 @@ void grid_graph_cut(int* origin_labels, int* relabels, float* udf, int* output, 
             }
         }
     }
-
+    std::cout << "begin GC cal" << std::endl;
     gc->setDataCost(&dataFn, (void*)&voxel_label_cost);
     gc->setSmoothCost(&smooth_Fn, (void*)udf_list.data());
     gc->expansion(loop);
     //std::cout << gc->giveDataEnergy() << std::endl;
     //std::cout << gc->giveSmoothEnergy() << std::endl;
-
+    std::cout << "end GC " << std::endl;
     for (int i = 0; i < nPix; i++) {
         output[inv_idx_map[i]] = gc->whatLabel(i);
     }
@@ -401,7 +401,7 @@ std::unordered_map<int, int> label_merge(std::unordered_map<std::pair<int, int>,
         if (id_1 == id_2) {
             continue;
         }
-        // È·±£¼üÊÇÉýÐòµÄ
+        // È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         auto kk = std::make_pair(
             std::min(id_1, id_2),
             std::max(id_1, id_2)
